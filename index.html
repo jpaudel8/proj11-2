@@ -47,11 +47,6 @@
             margin-left: 10px;
             font-family: 'Courier New', monospace;
         }
-        .loading {
-            text-align: center;
-            color: #999;
-            padding: 20px;
-        }
         .footer {
             text-align: center;
             margin-top: 30px;
@@ -67,79 +62,32 @@
             ✅ Deployed via GitHub Actions - Subash
         </div>
         
-        <div id="content" class="loading">
-            Loading instance information...
+        <div id="content">
+            <div class="info-box">
+                <span class="label">Instance ID:</span>
+                <span class="value">{{INSTANCE_ID}}</span>
+            </div>
+            <div class="info-box">
+                <span class="label">Instance Type:</span>
+                <span class="value">{{INSTANCE_TYPE}}</span>
+            </div>
+            <div class="info-box">
+                <span class="label">Availability Zone:</span>
+                <span class="value">{{AVAILABILITY_ZONE}}</span>
+            </div>
+            <div class="info-box">
+                <span class="label">Private IPv4:</span>
+                <span class="value">{{LOCAL_IPV4}}</span>
+            </div>
+            <div class="info-box">
+                <span class="label">Public IPv4:</span>
+                <span class="value">{{PUBLIC_IPV4}}</span>
+            </div>
         </div>
         
         <div class="footer">
             Served by Application Load Balancer | Auto-deployed from GitHub
         </div>
     </div>
-
-    <script>
-        async function fetchInstanceMetadata() {
-            const content = document.getElementById('content');
-            
-            try {
-                // Get token for IMDSv2
-                const tokenResponse = await fetch('/metadata/token', {
-                    method: 'PUT',
-                    headers: {
-                        'X-aws-ec2-metadata-token-ttl-seconds': '21600'
-                    }
-                });
-                
-                if (!tokenResponse.ok) {
-                    throw new Error('Unable to get metadata token');
-                }
-                
-                const token = await tokenResponse.text();
-                
-                // Fetch all metadata
-                const [instanceId, instanceType, az, privateIp, publicIp] = await Promise.all([
-                    fetch('/metadata/instance-id', { headers: { 'X-aws-ec2-metadata-token': token } }).then(r => r.text()),
-                    fetch('/metadata/instance-type', { headers: { 'X-aws-ec2-metadata-token': token } }).then(r => r.text()),
-                    fetch('/metadata/placement/availability-zone', { headers: { 'X-aws-ec2-metadata-token': token } }).then(r => r.text()),
-                    fetch('/metadata/local-ipv4', { headers: { 'X-aws-ec2-metadata-token': token } }).then(r => r.text()),
-                    fetch('/metadata/public-ipv4', { headers: { 'X-aws-ec2-metadata-token': token } }).then(r => r.text())
-                ]);
-                
-                content.innerHTML = `
-                    <div class="info-box">
-                        <span class="label">Instance ID:</span>
-                        <span class="value">${instanceId}</span>
-                    </div>
-                    <div class="info-box">
-                        <span class="label">Instance Type:</span>
-                        <span class="value">${instanceType}</span>
-                    </div>
-                    <div class="info-box">
-                        <span class="label">Availability Zone:</span>
-                        <span class="value">${az}</span>
-                    </div>
-                    <div class="info-box">
-                        <span class="label">Private IPv4:</span>
-                        <span class="value">${privateIp}</span>
-                    </div>
-                    <div class="info-box">
-                        <span class="label">Public IPv4:</span>
-                        <span class="value">${publicIp}</span>
-                    </div>
-                `;
-            } catch (error) {
-                content.innerHTML = `
-                    <div class="info-box" style="border-left-color: #dc3545;">
-                        <span class="label">Error:</span>
-                        <span class="value">Unable to fetch instance metadata</span>
-                    </div>
-                    <p style="color: #666; margin-top: 15px;">
-                        This might be due to CORS restrictions or metadata service configuration.
-                    </p>
-                `;
-            }
-        }
-        
-        fetchInstanceMetadata();
-    </script>
 </body>
 </html>
