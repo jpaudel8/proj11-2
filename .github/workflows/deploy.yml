@@ -73,7 +73,7 @@ jobs:
             ssh -i private_key.pem \
               -o StrictHostKeyChecking=no \
               -o UserKnownHostsFile=/dev/null \
-              ubuntu@$ip <<'ENDSSH'
+              ubuntu@$ip << 'ENDSSH'
               # Get instance metadata
               TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
               INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
@@ -93,7 +93,7 @@ jobs:
               sudo chown www-data:www-data /var/www/html/index.html
               sudo systemctl restart nginx
               echo "Deployment completed on $(hostname)"
-ENDSSH
+          ENDSSH
             
             echo "✅ Deployment to $ip completed"
           done
