@@ -3,9 +3,9 @@ name: Deploy to EC2 ASG
 on:
   push:
     branches:
-      - main  # Change this to your branch name
+      - main
     paths:
-      - 'index.html'  # Only trigger when index.html changes
+      - 'index.html'
 
 jobs:
   deploy:
@@ -25,21 +25,17 @@ jobs:
       - name: Get ASG instances
         id: get-instances
         run: |
-          # Get instance IDs from the Auto Scaling Group
           INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
             --auto-scaling-group-names proj-11-asg \
             --query 'AutoScalingGroups[0].Instances[?HealthStatus==`Healthy`].InstanceId' \
             --output text)
-          
           echo "instance_ids=$INSTANCE_IDS" >> $GITHUB_OUTPUT
-          echo "Found instances: $INSTANCE_IDS"
       
       - name: Get instance IPs
         id: get-ips
         run: |
           INSTANCE_IDS="${{ steps.get-instances.outputs.instance_ids }}"
           PUBLIC_IPS=""
-          
           for instance_id in $INSTANCE_IDS; do
             IP=$(aws ec2 describe-instances \
               --instance-ids $instance_id \
@@ -47,9 +43,7 @@ jobs:
               --output text)
             PUBLIC_IPS="$PUBLIC_IPS $IP"
           done
-          
           echo "public_ips=$PUBLIC_IPS" >> $GITHUB_OUTPUT
-          echo "Instance IPs: $PUBLIC_IPS"
       
       - name: Setup SSH key
         run: |
@@ -59,22 +53,11 @@ jobs:
       - name: Deploy to all instances
         run: |
           PUBLIC_IPS="${{ steps.get-ips.outputs.public_ips }}"
-          
           for ip in $PUBLIC_IPS; do
             echo "Deploying to instance: $ip"
+            scp -i private_key.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null index.html ubuntu@$ip:/tmp/index.template.html
             
-            # Copy the template HTML file to the instance
-            scp -i private_key.pem \
-              -o StrictHostKeyChecking=no \
-              -o UserKnownHostsFile=/dev/null \
-              index.html ubuntu@$ip:/tmp/index.template.html
-            
-            # Generate the final HTML with instance metadata and deploy
-            ssh -i private_key.pem \
-              -o StrictHostKeyChecking=no \
-              -o UserKnownHostsFile=/dev/null \
-              ubuntu@$ip << 'EOF'
-              # Get instance metadata
+            ssh -i private_key.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@$ip << 'EOF'
               TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
               INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
               INSTANCE_TYPE=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-type)
@@ -82,7 +65,6 @@ jobs:
               LOCAL_IPV4=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/local-ipv4)
               PUBLIC_IPV4=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4)
               
-              # Replace placeholders in the template
               sed -e "s/{{INSTANCE_ID}}/$INSTANCE_ID/g" \
                   -e "s/{{INSTANCE_TYPE}}/$INSTANCE_TYPE/g" \
                   -e "s/{{AVAILABILITY_ZONE}}/$AVAILABILITY_ZONE/g" \
@@ -92,19 +74,15 @@ jobs:
               
               sudo chown www-data:www-data /var/www/html/index.html
               sudo systemctl restart nginx
-              echo "Deployment completed on $(hostname)"
 EOF
-            
             echo "✅ Deployment to $ip completed"
           done
-      
+
       - name: Cleanup
         if: always()
-        run: |
-          rm -f private_key.pem
-      
+        run: rm -f private_key.pem
+
       - name: Deployment Summary
         run: |
-          echo "🎉 Deployment completed successfully to all ASG instances!"
-          echo "Deployed file: index.html"
+          echo "🎉 Deployment completed successfully!"
           echo "Target instances: ${{ steps.get-ips.outputs.public_ips }}"
